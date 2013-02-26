@@ -1,0 +1,10 @@
+.level=FINE 
+java.util.logging.FileHandler.pattern=snova.log
+java.util.logging.FileHandler.limit=1024000
+java.util.logging.FileHandler.count=2
+java.util.logging.FileHandler.formatter=org.arch.misc.logging.PatternJDKLoggingFormatter
+java.util.logging.FileHandler.append=true
+java.util.logging.FileHandler.level=FINE
+java.util.logging.ConsoleHandler.level=FINE
+java.util.logging.ConsoleHandler.formatter=org.arch.misc.logging.PatternJDKLoggingFormatter
+handlers=java.util.logging.FileHandler,java.util.logging.ConsoleHandler

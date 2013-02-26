@@ -1,0 +1,89 @@
+snova-c4 Changelog
+===================
+Changes in version 0.19.0(2012.11.23)
+-------------------------------------------
+** Features
+   * Much faster implementation(Client&Server)
+   
+** Improvement
+   * 
+      
+** Task
+   * NA
+
+Changes in version 0.16.0(2012.10.06)
+-------------------------------------------
+** Features
+   * Add web interface for DNS query
+   
+** Improvement
+   * 
+      
+** Task
+   * NA
+   
+Changes in version 0.15.0(2012.08.18)
+-------------------------------------------
+** Features
+   * Refactor C4 client/server
+   * Disable RSocket mode
+   
+** Improvement
+   * 
+      
+** Task
+   * NA
+
+Changes in version 0.14.0(2012.06.16)
+-------------------------------------------
+** Features
+   * Full RSocket mode
+   * Add upnp support for RSocket mode
+   
+** Improvement
+   * 
+      
+** Task
+   * NA
+
+Changes in version 0.13.0(2012.04.22)
+-------------------------------------------
+** Features
+   * Add premium RSocket mode
+   
+** Improvement
+   * 
+      
+** Task
+   * NA
+   
+Changes in version 0.12.0204
+-------------------------------------------
+** Features
+   * snova-c4 server side support more than one snova-c4 clients
+   * Reload modified config file automatically
+   * Use HTTP connections to simulate full-duplex connection.
+   
+** Improvement
+   * Much better IO performance, especially when watching videos/downloading files
+      
+** Task
+   * NA
+
+Changes in version 0.12.0120
+-------------------------------------------
+Initial version
+
+** Features
+   * Support Heroku/Openshift/Cloundfoudry/Jelastic
+   * Full HTTP/HTTPS Proxy support
+   
+   
+** Task
+   * NA
+
+
+
+
+
+

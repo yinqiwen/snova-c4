@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+	version="2.5">
+
+	<servlet>
+		<servlet-name>Push</servlet-name>
+		<servlet-class>org.snova.c4.server.servlet.PushServlet</servlet-class>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+	<servlet>
+		<servlet-name>Pull</servlet-name>
+		<servlet-class>org.snova.c4.server.servlet.PullServlet</servlet-class>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+	<servlet>
+		<servlet-name>Index</servlet-name>
+		<servlet-class>org.snova.c4.server.servlet.IndexServlet</servlet-class>
+	</servlet>
+
+	<servlet>
+		<servlet-name>DNSQuery</servlet-name>
+		<servlet-class>org.snova.httpdns.DNSServlet</servlet-class>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>DNSQuery</servlet-name>
+		<url-pattern>/dns</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>Push</servlet-name>
+		<url-pattern>/push</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>Pull</servlet-name>
+		<url-pattern>/pull</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>Index</servlet-name>
+		<url-pattern>/</url-pattern>
+	</servlet-mapping>
+
+</web-app>
