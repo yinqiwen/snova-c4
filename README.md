@@ -1,23 +1,23 @@
-本项目是[Snova](http://code.google.com/p/snova/)的C4服务端的NodeJS实现， 可以部署到一些NodeJS PAaS平台，或者VPS上。
+本项目是[Snova](http://code.google.com/p/snova/)的C4服务端的Java/NodeJS实现， 可以部署到一些Java/NodeJS PaaS平台，或者VPS上。
 
 部署服务端
 --------
-> 目前支持NodeJS的有Heroku/Cloundfoudry/Openshift/Dotcloud/Appfog等，参考这些PaaS提供商官方文档部署
-> 服务端实现可在github中下载，或者到googlecode上下载
+> 目前支持Java/NodeJS的有Heroku/Cloundfoudry/Openshift/Dotcloud/Appfog/Modulus等，参考这些PaaS提供商官方文档部署
+> 服务端实现可在googlecode上下载
 > 部署到VPS上参考[C4VPSInstallation](http://code.google.com/p/snova/wiki/C4VPSInstallation)
 >[下载](http://code.google.com/p/snova/downloads/list)
 
 
 安装客户端
 --------
->客户端为gsnova zip包，解压即可；目前预编译支持的有Windows（32/64位）， Linux（64位），Mac（64位）。   
+>客户端为snova/gsnova zip包，解压即可；目前预编译支持的有Windows（32/64位）， Linux（64位），Mac（64位）。   
 用户按照[配置]一节修改配置后，即可启动gsnova。 windows用户直接执行gsnova.exe即可，Linux/Mac用户需要在命令行下启动gsnova程序。   
 用户还需要修改浏览器的代理地址为127.0.0.1:48100， 或者在支持PAC设置的浏览器中设置PAC地址为http://127.0.0.1:48100/pac/gfwlist       
 [下载](https://github.com/yinqiwen/gsnova/downloads)
 
 配置
 -------
-主要需要修改gsnova.conf，以下针对各个PaaS平台部署后配置说明   
+主要需要修改gsnova.conf(Snova用户类似修改过程)，以下针对各个PaaS平台部署后配置说明   
 
 #####C4 
 修改gsnova.conf中[C4]以下部分，默认Enable为0，开启需要修改Enable为1：   
