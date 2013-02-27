@@ -275,7 +275,6 @@ function handleEvent(user, index, evv){
       }
       //console.log("Connect:" + host + ":" + port);
       var client = net.connect(port, host ,  function() { 
-        session.socket = client;
         if(evv.method.toLowerCase() == 'connect'){
           var established = ev.newEvent(EVENT_TCP_CHUNK_TYPE, 1, session.sid);
           established.seq = session.sequence++;
