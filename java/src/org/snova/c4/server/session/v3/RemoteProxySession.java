@@ -387,6 +387,7 @@ public class RemoteProxySession
 		String addr = host + ":" + port;
 		if (addr.equals(remoteAddr) && null != client && client.isConnected())
 		{
+			resume(true);
 			return true;
 		}
 		String oldAddr = remoteAddr;
@@ -394,6 +395,7 @@ public class RemoteProxySession
 		doClose(key, client, oldAddr);
 		try
 		{
+			paused = false;
 			remoteAddr = addr;
 			client = SocketChannel.open();
 			client.configureBlocking(false);
