@@ -91,6 +91,7 @@ public class PushServlet extends HttpServlet
 				}
 			}
 		}
+		resp.setHeader("Connection", "keep-alive");
 		resp.setContentLength(0);
 		resp.setStatus(200);
 	}

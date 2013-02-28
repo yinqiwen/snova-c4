@@ -80,6 +80,8 @@ public class PullServlet extends HttpServlet
 			resp.setStatus(200);
 			resp.setContentType("image/jpeg");
 			resp.setHeader("C4LenHeader", "1");
+			resp.setHeader("Connection", "keep-alive");
+			resp.setHeader("Transfer-Encoding", "chunked");
 			do
 			{
 				Event ev = RemoteProxySessionManager.getInstance()
@@ -92,6 +94,8 @@ public class PullServlet extends HttpServlet
 					}
 					catch (Exception e)
 					{
+						logger.error(".", e);
+						e.printStackTrace();
 						resp.getOutputStream().close();
 						LinkedList<Event> eq = RemoteProxySessionManager
 						        .getInstance().getEventQueue(userToken, index);
@@ -127,13 +131,16 @@ public class PullServlet extends HttpServlet
 		}
 		catch (Throwable e)
 		{
+			logger.error(".", e);
 			resp.setStatus(400);
 			e.printStackTrace();
 			e.printStackTrace(new PrintStream(resp.getOutputStream()));
 		}
+		RemoteProxySessionManager.getInstance().pauseSessions(userToken, index);
 		if (!sentData)
 		{
 			resp.setContentLength(0);
 		}
+		
 	}
 }

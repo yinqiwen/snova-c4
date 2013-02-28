@@ -26,21 +26,22 @@ import org.snova.framework.event.TCPChunkEvent;
  */
 public class RemoteProxySession
 {
-	String user;
-	int groupIndex;
-	int sid;
-	private int sequence;
-	private String remoteAddr;
-	SocketChannel client = null;
-	SelectionKey key;
-	int ops;
-	private boolean isHttps;
-	private boolean paused = false;
-	private ByteBuffer buffer = ByteBuffer.allocate(65536);
-	private byte[] httpRequestContent = null;
-
-	private RemoteProxySessionManager sessionManager = null;
-
+	String	                          user;
+	int	                              groupIndex;
+	int	                              sid;
+	private int	                      sequence;
+	private String	                  remoteAddr;
+	SocketChannel	                  client	         = null;
+	SelectionKey	                  key;
+	int	                              ops;
+	private boolean	                  isHttps;
+	private boolean	                  paused	         = false;
+	private ByteBuffer	              buffer	         = ByteBuffer
+	                                                             .allocate(65536);
+	private byte[]	                  httpRequestContent	= null;
+	
+	private RemoteProxySessionManager	sessionManager	 = null;
+	
 	public RemoteProxySession(RemoteProxySessionManager sessionManager,
 	        String user, int groupIdx, int sid)
 	{
@@ -49,12 +50,12 @@ public class RemoteProxySession
 		this.sid = sid;
 		this.user = user;
 	}
-
+	
 	void close()
 	{
 		doClose(key, client, remoteAddr);
 	}
-
+	
 	protected static byte[] buildRequestContent(HTTPRequestEvent ev)
 	{
 		StringBuilder buffer = new StringBuilder();
@@ -79,7 +80,7 @@ public class RemoteProxySession
 			return header;
 		}
 	}
-
+	
 	private boolean writeContent(byte[] content)
 	{
 		if (null != client)
@@ -95,22 +96,22 @@ public class RemoteProxySession
 			}
 			catch (IOException e)
 			{
-
+				
 				return false;
 			}
 		}
 		return false;
 	}
-
-	void resume()
+	
+	boolean resume(boolean wakeSelector)
 	{
 		if (null == client)
 		{
-			return;
+			return false;
 		}
 		if (!paused)
 		{
-			return;
+			return false;
 		}
 		sessionManager.addInvokcation(new Runnable()
 		{
@@ -133,18 +134,19 @@ public class RemoteProxySession
 					e.printStackTrace();
 				}
 			}
-		});
+		}, wakeSelector);
+		return true;
 	}
-
-	void pause()
+	
+	boolean pause(boolean wakeSelector)
 	{
 		if (null == client)
 		{
-			return;
+			return false;
 		}
 		if (paused)
 		{
-			return;
+			return false;
 		}
 		sessionManager.addInvokcation(new Runnable()
 		{
@@ -167,9 +169,10 @@ public class RemoteProxySession
 					e.printStackTrace();
 				}
 			}
-		});
+		}, wakeSelector);
+		return true;
 	}
-
+	
 	boolean handleEvent(TypeVersion tv, Event ev)
 	{
 		switch (tv.type)
@@ -250,7 +253,7 @@ public class RemoteProxySession
 		}
 		return true;
 	}
-
+	
 	void onConnected()
 	{
 		SocketChannel socketChannel = (SocketChannel) key.channel();
@@ -270,10 +273,7 @@ public class RemoteProxySession
 				sequence++;
 				chunk.setHash(sid);
 				chunk.content = "HTTP/1.1 200 OK\r\n\r\n".getBytes();
-				if (!sessionManager.offerReadyEvent(user, groupIndex, chunk))
-				{
-					pause();
-				}
+				sessionManager.offerReadyEvent(user, groupIndex, chunk);
 			}
 			else
 			{
@@ -298,7 +298,7 @@ public class RemoteProxySession
 			doClose(key, client, remoteAddr);
 		}
 	}
-
+	
 	void onRead(SelectionKey key, String address)
 	{
 		buffer.clear();
@@ -307,7 +307,7 @@ public class RemoteProxySession
 		{
 			int n = socketChannel.read(buffer);
 			// System.out.println("#####" + remoteAddr + " onread:" + n);
-			if (n < 0)
+			if (n <= 0)
 			{
 				doClose(key, socketChannel, address);
 			}
@@ -322,7 +322,7 @@ public class RemoteProxySession
 				buffer.get(chunk.content);
 				if (!sessionManager.offerReadyEvent(user, groupIndex, chunk))
 				{
-					pause();
+					pause(true);
 				}
 			}
 			else
@@ -339,7 +339,7 @@ public class RemoteProxySession
 			doClose(key, socketChannel, address);
 		}
 	}
-
+	
 	private void doClose(SelectionKey key, SocketChannel channel, String address)
 	{
 		if (null == address)
@@ -381,7 +381,7 @@ public class RemoteProxySession
 		// });
 		// }
 	}
-
+	
 	private boolean checkClient(String host, int port)
 	{
 		String addr = host + ":" + port;
@@ -415,7 +415,7 @@ public class RemoteProxySession
 						e.printStackTrace();
 					}
 				}
-			});
+			}, true);
 		}
 		catch (IOException e)
 		{
