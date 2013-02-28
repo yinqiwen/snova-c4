@@ -97,12 +97,13 @@ public class PullServlet extends HttpServlet
 						logger.error(".", e);
 						e.printStackTrace();
 						resp.getOutputStream().close();
-//						LinkedList<Event> eq = RemoteProxySessionManager
-//						        .getInstance().getEventQueue(userToken, index);
-//						synchronized (eq)
-//						{
-//							eq.addFirst(ev);
-//						}
+						RemoteProxySessionManager.getInstance().pauseSessions(userToken, index);
+						LinkedList<Event> eq = RemoteProxySessionManager
+						        .getInstance().getEventQueue(userToken, index);
+						synchronized (eq)
+						{
+							eq.addFirst(ev);
+						}
 						return;
 					}
 					

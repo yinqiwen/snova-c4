@@ -113,6 +113,7 @@ public class RemoteProxySession
 		{
 			return false;
 		}
+		paused = false;
 		sessionManager.addInvokcation(new Runnable()
 		{
 			public void run()
@@ -125,7 +126,6 @@ public class RemoteProxySession
 						key = client.register(sessionManager.selector, ops,
 						        new SessionAddressPair(RemoteProxySession.this,
 						                remoteAddr));
-						paused = false;
 					}
 				}
 				catch (ClosedChannelException e)
@@ -148,6 +148,7 @@ public class RemoteProxySession
 		{
 			return false;
 		}
+		paused = true;
 		sessionManager.addInvokcation(new Runnable()
 		{
 			public void run()
@@ -159,8 +160,7 @@ public class RemoteProxySession
 						ops = ops & ~SelectionKey.OP_READ;
 						key = client.register(sessionManager.selector, ops,
 						        new SessionAddressPair(RemoteProxySession.this,
-						                remoteAddr));
-						paused = true;
+						                remoteAddr));	
 					}
 				}
 				catch (ClosedChannelException e)
