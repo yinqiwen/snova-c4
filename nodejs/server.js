@@ -9,7 +9,7 @@ var net = require('net');
 var HashMap = require('./hashmap.js').HashMap;
 var ev = require('./event.js');
 
-var VERSION="0.20.3.1";
+var VERSION="0.20.4";
 var CACHE_LIMIT = 20;
 var RESUME_WATER_MARK = CACHE_LIMIT/2;
 
