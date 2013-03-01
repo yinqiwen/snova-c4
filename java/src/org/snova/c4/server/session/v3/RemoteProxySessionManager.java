@@ -121,6 +121,10 @@ public class RemoteProxySessionManager implements Runnable
 		encrypt.ev = ev;
 		encrypt.setHash(ev.getHash());
 		LinkedList<Event> queue = getEventQueue(user, groupIdx);
+		if (queue.size() <= (MAX_QUEUE_EVENTS / 2))
+		{
+			resumeSessions(user, groupIdx);
+		}
 		synchronized (queue)
 		{
 			queue.add(encrypt);
@@ -136,7 +140,7 @@ public class RemoteProxySessionManager implements Runnable
 		Event ev = null;
 		synchronized (queue)
 		{
-			if (queue.size() <= MAX_QUEUE_EVENTS / 2)
+			if (queue.size() <= (MAX_QUEUE_EVENTS / 2))
 			{
 				resumeSessions(user, groupIndex);
 			}
@@ -155,6 +159,10 @@ public class RemoteProxySessionManager implements Runnable
 			if (!queue.isEmpty())
 			{
 				ev = queue.removeFirst();
+			}
+			if (queue.size() <= (MAX_QUEUE_EVENTS / 2))
+			{
+				resumeSessions(user, groupIndex);
 			}
 		}
 		if (null != ev)

@@ -1,0 +1,20 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Query Result</title>
+</head>
+<body>
+	<div style="width: 100%">
+		<div style="text-align: center;">
+			<div class="div_whois">
+			       Domain: ${DOMAIN}&nbsp;&nbsp;<a href='http://${DOMAIN}' target=_blank>Visit</a>
+			</div>
+			<div id="whoisinfo" class="div_whois">
+				${CONTENT}
+				<br />
+			</div>
+		</div>
+	</div>
+</body>
+</html>

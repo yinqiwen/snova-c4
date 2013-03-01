@@ -36,8 +36,8 @@ public class RemoteProxySession
 	int	                              ops;
 	private boolean	                  isHttps;
 	private boolean	                  paused	         = false;
-	private ByteBuffer	              buffer	         = ByteBuffer
-	                                                             .allocate(65536);
+	private static ByteBuffer	      buffer	         = ByteBuffer
+	                                                             .allocateDirect(65536);
 	private byte[]	                  httpRequestContent	= null;
 	
 	private RemoteProxySessionManager	sessionManager	 = null;
@@ -126,6 +126,7 @@ public class RemoteProxySession
 						key = client.register(sessionManager.selector, ops,
 						        new SessionAddressPair(RemoteProxySession.this,
 						                remoteAddr));
+						paused = false;
 					}
 				}
 				catch (ClosedChannelException e)
@@ -160,7 +161,8 @@ public class RemoteProxySession
 						ops = ops & ~SelectionKey.OP_READ;
 						key = client.register(sessionManager.selector, ops,
 						        new SessionAddressPair(RemoteProxySession.this,
-						                remoteAddr));	
+						                remoteAddr));
+						paused = true;
 					}
 				}
 				catch (ClosedChannelException e)
@@ -189,12 +191,6 @@ public class RemoteProxySession
 				{
 					return false;
 				}
-			}
-			case CommonEventConstants.EVENT_SOCKET_READ_TYPE:
-			{
-				SocketReadEvent event = (SocketReadEvent) ev;
-				// return readClient(event.maxread, event.timeout);
-				break;
 			}
 			case CommonEventConstants.EVENT_TCP_CONNECTION_TYPE:
 			{
@@ -264,6 +260,7 @@ public class RemoteProxySession
 				socketChannel.finishConnect();
 			}
 			ops = SelectionKey.OP_READ;
+			paused = false;
 			key = socketChannel.register(sessionManager.selector, ops,
 			        new SessionAddressPair(this, remoteAddr));
 			if (isHttps)
@@ -305,30 +302,38 @@ public class RemoteProxySession
 		SocketChannel socketChannel = (SocketChannel) key.channel();
 		try
 		{
-			int n = socketChannel.read(buffer);
-			// System.out.println("#####" + remoteAddr + " onread:" + n);
-			if (n <= 0)
+			while (true)
 			{
-				doClose(key, socketChannel, address);
-			}
-			else if (n > 0)
-			{
-				buffer.flip();
-				TCPChunkEvent chunk = new TCPChunkEvent();
-				chunk.sequence = sequence;
-				sequence++;
-				chunk.setHash(sid);
-				chunk.content = new byte[n];
-				buffer.get(chunk.content);
-				if (!sessionManager.offerReadyEvent(user, groupIndex, chunk))
+				int n = socketChannel.read(buffer);
+				// System.out.println("#####" + remoteAddr + " onread:" + n);
+				if (n < 0)
 				{
-					pause(true);
+					doClose(key, socketChannel, address);
+					break;
 				}
-			}
-			else
-			{
-				System.out.println("#############read 0 for " + sid + " :"
-				        + remoteAddr);
+				else if (n > 0)
+				{
+					buffer.flip();
+					TCPChunkEvent chunk = new TCPChunkEvent();
+					chunk.sequence = sequence;
+					sequence++;
+					chunk.setHash(sid);
+					chunk.content = new byte[n];
+					buffer.get(chunk.content);
+					if (!sessionManager
+					        .offerReadyEvent(user, groupIndex, chunk))
+					{
+						pause(true);
+					}
+					if(n < buffer.capacity())
+					{
+						break;
+					}
+				}
+				else
+				{
+					break;
+				}
 			}
 		}
 		catch (IOException e)
