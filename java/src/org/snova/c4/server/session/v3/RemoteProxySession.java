@@ -4,20 +4,29 @@
 package org.snova.c4.server.session.v3;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import org.arch.buffer.Buffer;
 import org.arch.common.KeyValuePair;
 import org.arch.event.Event;
 import org.arch.event.TypeVersion;
 import org.arch.event.http.HTTPEventContants;
 import org.arch.event.http.HTTPRequestEvent;
+import org.arch.event.http.HTTPResponseEvent;
 import org.snova.framework.event.CommonEventConstants;
 import org.snova.framework.event.SocketConnectionEvent;
-import org.snova.framework.event.SocketReadEvent;
 import org.snova.framework.event.TCPChunkEvent;
 
 /**
@@ -26,21 +35,24 @@ import org.snova.framework.event.TCPChunkEvent;
  */
 public class RemoteProxySession
 {
-	String	                          user;
-	int	                              groupIndex;
-	int	                              sid;
-	private int	                      sequence;
-	private String	                  remoteAddr;
-	SocketChannel	                  client	         = null;
-	SelectionKey	                  key;
-	int	                              ops;
-	private boolean	                  isHttps;
-	private boolean	                  paused	         = false;
-	private static ByteBuffer	      buffer	         = ByteBuffer
-	                                                             .allocateDirect(65536);
-	private byte[]	                  httpRequestContent	= null;
+	static ExecutorService	       globalThreadPool	  = Executors
+	                                                          .newCachedThreadPool();
+	String	                       user;
+	int	                           groupIndex;
+	int	                           sid;
+	private int	                   sequence;
+	private String	               remoteAddr;
+	SocketChannel	               client	          = null;
+	SelectionKey	               key;
+	int	                           ops;
+	private boolean	               isHttps;
+	private boolean	               paused	          = false;
+	private static ByteBuffer	   buffer	          = ByteBuffer
+	                                                          .allocateDirect(65536);
+	private byte[]	               httpRequestContent	= null;
+	private Set<HttpURLConnection>	hcs	              = new HashSet<HttpURLConnection>();
 	
-	private RemoteProxySessionManager	sessionManager	 = null;
+	RemoteProxySessionManager	   sessionManager	  = null;
 	
 	public RemoteProxySession(RemoteProxySessionManager sessionManager,
 	        String user, int groupIdx, int sid)
@@ -53,7 +65,7 @@ public class RemoteProxySession
 	
 	void close()
 	{
-		doClose(key, client, remoteAddr);
+		doClose(key, client, remoteAddr, true);
 	}
 	
 	protected static byte[] buildRequestContent(HTTPRequestEvent ev)
@@ -96,7 +108,6 @@ public class RemoteProxySession
 			}
 			catch (IOException e)
 			{
-				
 				return false;
 			}
 		}
@@ -133,6 +144,7 @@ public class RemoteProxySession
 				{
 					// TODO Auto-generated catch block
 					e.printStackTrace();
+					close();
 				}
 			}
 		}, wakeSelector);
@@ -169,10 +181,104 @@ public class RemoteProxySession
 				{
 					// TODO Auto-generated catch block
 					e.printStackTrace();
+					close();
 				}
 			}
 		}, wakeSelector);
 		return true;
+	}
+	
+	private HTTPResponseEvent urlfetch(HTTPRequestEvent req)
+	{
+		HTTPResponseEvent res = new HTTPResponseEvent();
+		res.setHash(req.getHash());
+		HttpURLConnection.setFollowRedirects(false);
+		HttpURLConnection conn = null;
+		try
+		{
+			URL url = new URL("http://" + req.getHeader("Host") + req.url);
+			conn = (HttpURLConnection) url.openConnection();
+			
+			conn.setDoInput(true);
+			conn.setRequestMethod(req.method);
+			for (KeyValuePair<String, String> h : req.headers)
+			{
+				conn.addRequestProperty(h.getName(), h.getValue());
+			}
+			if (req.content.readable())
+			{
+				conn.setDoOutput(true);
+			}
+			conn.connect();
+			hcs.add(conn);
+			if (req.content.readable())
+			{
+				conn.getOutputStream()
+				        .write(req.content.getRawBuffer(),
+				                req.content.getReadIndex(),
+				                req.content.readableBytes());
+			}
+			
+			res.statusCode = conn.getResponseCode();
+			if (res.statusCode == 302)
+			{
+				if(req.getHeader("Range") != null)
+				{
+					res.setHeader("X-Range", req.getHeader("Range"));
+				}
+			}
+			Map<String, List<String>> rh = conn.getHeaderFields();
+			for (String name : rh.keySet())
+			{
+				if (null != name && name.length() > 0)
+				{
+					List<String> vs = rh.get(name);
+					for (String v : vs)
+					{
+						res.addHeader(name, v);
+					}
+				}
+			}
+			Buffer buffer = new Buffer(4096);
+			byte[] tmp = new byte[65536];
+			while (true)
+			{
+				try
+				{
+					int n = conn.getInputStream().read(tmp);
+					if (n > 0)
+					{
+						buffer.write(tmp, 0, n);
+					}
+					else
+					{
+						break;
+					}
+				}
+				catch (Exception e)
+				{
+					break;
+				}
+			}
+			res.setHeader("X-Snova-HCE", "1");
+			res.content = buffer;
+			sessionManager.offerReadyEvent(user, groupIndex, res);
+			return res;
+		}
+		catch (Exception e)
+		{
+			res.statusCode = 503;
+			sessionManager.offerReadyEvent(user, groupIndex, res);
+			e.printStackTrace();
+			return null;
+		}
+		finally
+		{
+			if (null != conn)
+			{
+				hcs.remove(conn);
+			}
+		}
 	}
 	
 	boolean handleEvent(TypeVersion tv, Event ev)
@@ -195,16 +301,16 @@ public class RemoteProxySession
 			case CommonEventConstants.EVENT_TCP_CONNECTION_TYPE:
 			{
 				SocketConnectionEvent event = (SocketConnectionEvent) ev;
-				if (event.status == SocketConnectionEvent.TCP_CONN_CLOSED)
+				// if (event.status == SocketConnectionEvent.TCP_CONN_CLOSED)
 				{
-					doClose(key, client, remoteAddr);
+					doClose(key, client, remoteAddr, false);
 					sessionManager.removeSession(this);
 				}
 				break;
 			}
 			case HTTPEventContants.HTTP_REQUEST_EVENT_TYPE:
 			{
-				HTTPRequestEvent req = (HTTPRequestEvent) ev;
+				final HTTPRequestEvent req = (HTTPRequestEvent) ev;
 				String host = req.getHeader("Host");
 				int port = 80;
 				if (host.indexOf(":") != -1)
@@ -226,9 +332,24 @@ public class RemoteProxySession
 				}
 				else
 				{
-					httpRequestContent = buildRequestContent(req);
+					if (req.getHeader("X-Snova-HCE") != null)
+					{
+						globalThreadPool.submit(new Runnable()
+						{
+							public void run()
+							{
+								urlfetch(req);
+							}
+						});
+						return true;
+					}
+					else
+					{
+						httpRequestContent = buildRequestContent(req);
+					}
+					
 				}
-				// System.out.println("Session[" + sid + "] rec req " + req);
+				sequence = 0;
 				if (checkClient(host, port))
 				{
 					if (null != httpRequestContent)
@@ -292,24 +413,28 @@ public class RemoteProxySession
 				        .getBytes();
 				sessionManager.offerReadyEvent(user, groupIndex, chunk);
 			}
-			doClose(key, client, remoteAddr);
+			doClose(key, client, remoteAddr, true);
 		}
 	}
 	
 	void onRead(SelectionKey key, String address)
 	{
-		buffer.clear();
 		SocketChannel socketChannel = (SocketChannel) key.channel();
 		try
 		{
 			while (true)
 			{
+				if (client == null || client != socketChannel)
+				{
+					key.cancel();
+					return;
+				}
+				buffer.clear();
 				int n = socketChannel.read(buffer);
 				// System.out.println("#####" + remoteAddr + " onread:" + n);
 				if (n < 0)
 				{
-					doClose(key, socketChannel, address);
-					break;
+					doClose(key, socketChannel, address, true);
 				}
 				else if (n > 0)
 				{
@@ -325,7 +450,7 @@ public class RemoteProxySession
 					{
 						pause(true);
 					}
-					if(n < buffer.capacity())
+					if (n < buffer.capacity())
 					{
 						break;
 					}
@@ -335,17 +460,19 @@ public class RemoteProxySession
 					break;
 				}
 			}
+			
 		}
-		catch (IOException e)
+		catch (Exception e)
 		{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.out.println("#####Close " + address);
-			doClose(key, socketChannel, address);
+			doClose(key, socketChannel, address, true);
 		}
 	}
 	
-	private void doClose(SelectionKey key, SocketChannel channel, String address)
+	private void doClose(SelectionKey key, SocketChannel channel,
+	        String address, boolean notify)
 	{
 		if (null == address)
 		{
@@ -366,25 +493,23 @@ public class RemoteProxySession
 		}
 		if (address.equals(remoteAddr))
 		{
-			SocketConnectionEvent closeEv = new SocketConnectionEvent();
-			closeEv.setHash(sid);
-			closeEv.addr = remoteAddr;
-			closeEv.status = SocketConnectionEvent.TCP_CONN_CLOSED;
-			sessionManager.offerReadyEvent(user, groupIndex, closeEv);
 			client = null;
 			sessionManager.removeSession(this);
+			if (notify)
+			{
+				SocketConnectionEvent closeEv = new SocketConnectionEvent();
+				closeEv.setHash(sid);
+				closeEv.addr = remoteAddr;
+				closeEv.status = SocketConnectionEvent.TCP_CONN_CLOSED;
+				closeEv.setAttachment(Boolean.TRUE);
+				sessionManager.offerReadyEvent(user, groupIndex, closeEv);
+			}
+			for (HttpURLConnection c : hcs)
+			{
+				c.disconnect();
+			}
+			hcs.clear();
 		}
-		// if (null != key)
-		// {
-		// sessionManager.addInvokcation(new Runnable()
-		// {
-		// public void run()
-		// {
-		// key.cancel();
-		// key = null;
-		// }
-		// });
-		// }
 	}
 	
 	private boolean checkClient(String host, int port)
@@ -397,7 +522,7 @@ public class RemoteProxySession
 		}
 		String oldAddr = remoteAddr;
 		remoteAddr = addr;
-		doClose(key, client, oldAddr);
+		doClose(key, client, oldAddr, true);
 		try
 		{
 			paused = false;

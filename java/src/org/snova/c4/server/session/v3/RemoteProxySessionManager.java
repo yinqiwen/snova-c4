@@ -17,10 +17,12 @@ import org.arch.buffer.Buffer;
 import org.arch.event.Event;
 import org.arch.event.EventDispatcher;
 import org.arch.event.TypeVersion;
+import org.arch.event.http.HTTPEventContants;
 import org.arch.event.misc.EncryptEventV2;
 import org.arch.event.misc.EncryptType;
 import org.snova.c4.server.C4Events;
 import org.snova.framework.event.CommonEventConstants;
+import org.snova.framework.event.SocketConnectionEvent;
 import org.snova.framework.event.UserLoginEvent;
 
 /**
@@ -30,7 +32,7 @@ import org.snova.framework.event.UserLoginEvent;
 public class RemoteProxySessionManager implements Runnable
 {
 	
-	public static final int	         MAX_QUEUE_EVENTS	 = 20;
+	public static final int	         MAX_QUEUE_EVENTS	 = 10;
 	Selector	                     selector;
 	
 	private Map	                     userSessionGroup	 = new HashMap();
@@ -120,6 +122,7 @@ public class RemoteProxySessionManager implements Runnable
 		encrypt.type = EncryptType.RC4;
 		encrypt.ev = ev;
 		encrypt.setHash(ev.getHash());
+		encrypt.setAttachment(ev.getAttachment());
 		LinkedList<Event> queue = getEventQueue(user, groupIdx);
 		if (queue.size() <= (MAX_QUEUE_EVENTS / 2))
 		{
@@ -167,10 +170,28 @@ public class RemoteProxySessionManager implements Runnable
 		}
 		if (null != ev)
 		{
-			ev.encode(buf);
-			return ev;
+			Object attach = ev.getAttachment();
+			if (null == attach && !sessionExist(user, groupIndex, ev.getHash()))
+			{
+				// System.out.println("####Session:" + ev.getHash()
+				// + " is not exist!");
+				ev = null;
+			}
 		}
-		return null;
+		if (null == ev)
+		{
+			//As fake ping package
+			SocketConnectionEvent closeEv = new SocketConnectionEvent();
+			closeEv.setHash(0);
+			closeEv.status = SocketConnectionEvent.TCP_CONN_CLOSED;
+			ev = closeEv;
+		}
+		// else
+		{
+			ev.encode(buf);
+		}
+		
+		return ev;
 	}
 	
 	public void resumeSessions(String user, int groupIdx)
@@ -259,17 +280,12 @@ public class RemoteProxySessionManager implements Runnable
 			{
 				return false;
 			}
-			RemoteProxySession session = (RemoteProxySession) sessionMap
-			        .get(sid);
-			if (null == session)
-			{
-				return false;
-			}
-			return true;
+			return sessionMap.containsKey(sid);
 		}
 	}
 	
-	RemoteProxySession getSession(String user, int groupIdx, int sid)
+	RemoteProxySession getSession(String user, int groupIdx, int sid,
+	        boolean create)
 	{
 		synchronized (userSessionGroup)
 		{
@@ -289,8 +305,11 @@ public class RemoteProxySessionManager implements Runnable
 			        .get(sid);
 			if (null == session)
 			{
-				session = new RemoteProxySession(this, user, groupIdx, sid);
-				sessionMap.put(sid, session);
+				if (create)
+				{
+					session = new RemoteProxySession(this, user, groupIdx, sid);
+					sessionMap.put(sid, session);
+				}
 			}
 			return session;
 		}
@@ -326,6 +345,7 @@ public class RemoteProxySessionManager implements Runnable
 				LinkedList<Event> queue = (LinkedList<Event>) eqs.get(key);
 				queue.clear();
 			}
+			eqs.clear();
 		}
 	}
 	
@@ -342,11 +362,30 @@ public class RemoteProxySessionManager implements Runnable
 				UserLoginEvent usev = (UserLoginEvent) event;
 				clearUser(usev.user);
 			}
+			else if (tv.type == CommonEventConstants.EVENT_TCP_CONNECTION_TYPE)
+			{
+				RemoteProxySession s = getSession(user, groupIdx,
+				        event.getHash(), false);
+				if (null != s)
+				{
+					s.close();
+					System.out.println("####Remove Session:" + event.getHash());
+				}
+			}
+			else if (tv.type == HTTPEventContants.HTTP_REQUEST_EVENT_TYPE)
+			{
+				RemoteProxySession s = getSession(user, groupIdx,
+				        event.getHash(), true);
+				s.handleEvent(tv, event);
+			}
 			else
 			{
 				RemoteProxySession s = getSession(user, groupIdx,
-				        event.getHash());
-				s.handleEvent(tv, event);
+				        event.getHash(), false);
+				if (s != null)
+				{
+					s.handleEvent(tv, event);
+				}
 			}
 		}
 	}

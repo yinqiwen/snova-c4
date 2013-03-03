@@ -43,8 +43,10 @@ public class PullServlet extends HttpServlet
 	protected void doPost(HttpServletRequest req, final HttpServletResponse resp)
 	        throws ServletException, IOException
 	{
+		
 		long begin = System.currentTimeMillis();
 		Buffer buf = new Buffer(65536 + 100);
+		resp.setBufferSize(65536 + 100);
 		String userToken = req.getHeader("UserToken");
 		String miscInfo = req.getHeader("C4MiscInfo");
 		if (null == userToken)
@@ -84,20 +86,27 @@ public class PullServlet extends HttpServlet
 			resp.setHeader("Transfer-Encoding", "chunked");
 			do
 			{
+				long tmp = timeout;
+				if(tmp > 10000)
+				{
+					tmp = 10000;
+				}
 				Event ev = RemoteProxySessionManager.getInstance()
-				        .consumeReadyEvent(userToken, index, buf, timeout);
+				        .consumeReadyEvent(userToken, index, buf, tmp);
 				if (buf.readable())
 				{
 					try
 					{
 						flushContent(resp, buf);
+						// Thread.sleep(1);
 					}
-					catch (Exception e)
+					catch (Throwable e)
 					{
 						logger.error(".", e);
 						e.printStackTrace();
 						resp.getOutputStream().close();
-						RemoteProxySessionManager.getInstance().pauseSessions(userToken, index);
+						RemoteProxySessionManager.getInstance().pauseSessions(
+						        userToken, index);
 						LinkedList<Event> eq = RemoteProxySessionManager
 						        .getInstance().getEventQueue(userToken, index);
 						synchronized (eq)
@@ -142,6 +151,6 @@ public class PullServlet extends HttpServlet
 		{
 			resp.setContentLength(0);
 		}
-		
+		//resp.flushBuffer();
 	}
 }

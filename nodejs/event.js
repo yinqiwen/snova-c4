@@ -66,6 +66,25 @@ exports.encodeChunkTcpChunkEvent = function(ev){
    return encodeEncryptChunk(tmp, ev.hash);
 }
 
+exports.encodeChunkResponseEvent = function(ev){
+   var buffer = newWriteBuffer(new Buffer(4096));
+   writeUvarint(buffer, ev.type);
+   writeUvarint(buffer, ev.version);
+   writeUvarint(buffer, ev.hash);
+   writeUvarint(buffer, ev.status);
+   writeUvarint(buffer, ev.headers.length);
+   for(var i = 0; i < ev.headers.length; i++){
+     var hv = ev.headers[i];
+     writeString(buffer, hv[0]);
+     writeString(buffer, hv[1]);
+   }
+    writeUvarint(buffer, ev.content.length);
+   var header = buffer.raw.slice(0, buffer.writeIdx);
+   var len = header.length + ev.content.length;
+   var tmp = Buffer.concat([header, ev.content],len);
+   return encodeEncryptChunk(tmp, ev.hash);
+}
+
 exports.encodeChunkConnectionEvent = function(ev){
    var buffer = newWriteBuffer(new Buffer(ev.addr.length + 24));
    writeUvarint(buffer, ev.type);
@@ -258,12 +277,18 @@ function decodeRawEvent(type, version, data){
      ev.method = readString(data);
      var headlen =  readUvarint(data);
      ev.headers = [];
+     ev.hashce = false;
+     ev.rangeheader = null;
      var headerstr = ev.method + " " + ev.url + " HTTP/1.1\r\n";
      for(var i = 0; i < headlen; i++){
           var name = readString(data);
           var value = readString(data);
           if(name.toLowerCase() == "host"){
-            ev.host = value
+            ev.host = value;
+          }else if(name.toLowerCase() == "x-snova-hce"){
+            ev.hashce = true;
+          }else if(name.toLowerCase() == "range"){
+             ev.rangeheader = value;
           }
           ev.headers.push([name, value]);
           headerstr = headerstr + name + ":" + value + "\r\n";

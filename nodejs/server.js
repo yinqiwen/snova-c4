@@ -93,6 +93,10 @@ function clearUser(user){
      sessionGroup.clear();
      userSessionGroupMap.remove(user);
   }
+  if(userEventQueueMap.has(user)){
+     var eqs = userEventQueueMap.get(user);
+     eqs.clear();
+  }
 }
 
 function getSessionMap(user, index){
@@ -109,8 +113,10 @@ function getSessionMap(user, index){
 function encodeEvent(evv){
   if(evv.type == EVENT_TCP_CHUNK_TYPE){
     return ev.encodeChunkTcpChunkEvent(evv);
-  }else{
+  }else if(evv.type == EVENT_TCP_CONNECTION_TYPE){
     return ev.encodeChunkConnectionEvent(evv);
+  }else if(evv.type == HTTP_RESPONSE_EVENT_TYPE){
+    return ev.encodeChunkResponseEvent(evv);
   }
 }
 
@@ -127,6 +133,58 @@ function trySendCache(eq, writer){
       }
    }
    return true;
+}
+
+function urlfetch(session, reqev){
+ var hs = new Object();
+ for(var i = 0; i < reqev.headers.length; i++){
+    var hv = reqev.headers[i];
+    if(null == hs[hv[0]]){
+       hs[hv[0]] = hv[1];
+    }else{
+       var tmp = hs[hv[0]];
+       hs[hv[0]] = [tmp, hv[1]];
+    }
+ }
+ var options = {
+    host: reqev.host,
+    port: 80,
+    path: reqev.url,
+    method: reqev.method,
+    headers:hs
+ };
+ var resev = ev.newEvent(HTTP_RESPONSE_EVENT_TYPE, 1, reqev.hash);
+ var req = http.request(options, function(res) {
+   resev.status = res.statusCode;
+   resev.headers = [];
+   if(resev.status == 302){
+      if(null != reqev.rangeheader){
+         resev.headers.push(["X-Range", reqev.rangeheader]);
+      }
+   }
+  
+   resev.headers.push(["X-Snova-HCE", "1"]);
+   for (var hn in res.headers) {
+      var hv = res.headers[hn];
+      resev.headers.push([hn, hv]);
+   }
+   var _data= new Buffer(0);
+   res.on('data', function(chunk){
+      if(_data.length == 0){
+        _data = chunk;
+      }else{
+        var len = _data.length + chunk.length;
+        _data = Buffer.concat([_data, chunk],len);
+      }
+   });
+   res.on('end', function(){
+     resev.content = _data;
+     session.responseProxyEvent(encodeEvent(resev));
+   });
+});
+ 
+req.write(reqev.content);
+req.end();
 }
 
 function resumeUserSessions(user, index, writer){
@@ -230,6 +288,7 @@ function onIndex(request, response) {
 
 
 var HTTP_REQUEST_EVENT_TYPE=1000;
+var HTTP_RESPONSE_EVENT_TYPE=1001;
 var ENCRYPT_EVENT_TYPE=1501;
 var EVENT_TCP_CONNECTION_TYPE = 12000;
 var EVENT_USER_LOGIN_TYPE=12002;
@@ -258,6 +317,11 @@ function handleEvent(user, index, evv){
       var port = 80;
       if(evv.method.toLowerCase() == 'connect'){
         port = 443;
+      }else{
+        if(evv.hashce){
+          urlfetch(session, evv);
+          return;
+        }
       }
       var ss = host.split(":");
       if(ss.length == 2){
@@ -378,6 +442,16 @@ function onInvoke(request, response) {
          response.end();
          transcEnded = true;
        }, timeout*1000);
+       var pingfunc = function () {
+         if(!transcEnded){
+            var closed = ev.newEvent(EVENT_TCP_CONNECTION_TYPE, 1, 0);  
+            closed.status =  TCP_CONN_CLOSED;
+            closed.addr =  "1";
+            response.write(encodeEvent(closed));
+            setTimeout(pingfunc, 10*1000);
+         }
+       };
+      setTimeout(pingfunc, 10*1000);
       response.on('drain', function () {
          if(!transcEnded){
            resumeUserSessions(user, index, response);
