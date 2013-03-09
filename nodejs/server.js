@@ -9,7 +9,7 @@ var net = require('net');
 var HashMap = require('./hashmap.js').HashMap;
 var ev = require('./event.js');
 
-var VERSION="0.20.4";
+var VERSION="0.21.0";
 var CACHE_LIMIT = 20;
 var RESUME_WATER_MARK = CACHE_LIMIT/2;
 
@@ -424,9 +424,9 @@ function onInvoke(request, response) {
    var recvlen = 0;
 
    if(ispull){
-     response.writeHead(200, {"Content-Type": "image/jpeg",  "C4LenHeader":1, "Connection":"keep-alive", "Transfer-Encoding":"chunked"});
+     response.writeHead(200, {"Content-Type": "image/jpeg", "C4LenHeader":1, "Connection":"keep-alive", "Transfer-Encoding":"chunked"});
    }else{
-     response.writeHead(200, {"Content-Type": "image/jpeg",  "C4LenHeader":1, "Connection":"keep-alive"});
+     response.writeHead(200, {"Content-Type": "image/jpeg", "C4LenHeader":1, "Connection":"keep-alive"});
      request.addListener("data", function(chunk) {
         chunk.copy(postData, recvlen, 0);
         recvlen += chunk.length;

@@ -1,1 +1,1 @@
-package org.snova.c4.server;    public class Version    {       public static final String value = "0.20.4";    }
+package org.snova.c4.server;    public class Version    {       public static final String value = "0.21.0";    }
