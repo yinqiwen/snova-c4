@@ -168,16 +168,6 @@ public class RemoteProxySessionManager implements Runnable
 				resumeSessions(user, groupIndex);
 			}
 		}
-		if (null != ev)
-		{
-			Object attach = ev.getAttachment();
-			if (null == attach && !sessionExist(user, groupIndex, ev.getHash()))
-			{
-				// System.out.println("####Session:" + ev.getHash()
-				// + " is not exist!");
-				ev = null;
-			}
-		}
 		if (null == ev)
 		{
 			//As fake ping package
@@ -186,11 +176,7 @@ public class RemoteProxySessionManager implements Runnable
 			closeEv.status = SocketConnectionEvent.TCP_CONN_CLOSED;
 			ev = closeEv;
 		}
-		// else
-		{
-			ev.encode(buf);
-		}
-		
+		ev.encode(buf);
 		return ev;
 	}
 	

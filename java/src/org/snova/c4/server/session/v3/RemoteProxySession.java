@@ -501,7 +501,6 @@ public class RemoteProxySession
 				closeEv.setHash(sid);
 				closeEv.addr = remoteAddr;
 				closeEv.status = SocketConnectionEvent.TCP_CONN_CLOSED;
-				closeEv.setAttachment(Boolean.TRUE);
 				sessionManager.offerReadyEvent(user, groupIndex, closeEv);
 			}
 			for (HttpURLConnection c : hcs)
