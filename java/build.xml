@@ -13,7 +13,7 @@
 	<property name="conf" value="${root}/conf" />
 	<property name="temp" value="${root}/temp" />
 	<property name="release" value="release" />
-	<property name="version" value="0.21.0" />
+	<property name="version" value="0.21.0.1" />
 	<property name="versionfile" value="org/snova/c4/server/Version.java" />
 	<property name="release_dir_name" value="c4" />
 	<property name="project_name" value="snova-c4" />

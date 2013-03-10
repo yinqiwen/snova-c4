@@ -36,7 +36,7 @@ public class PullServlet extends HttpServlet
 		        len.readableBytes());
 		resp.getOutputStream().write(buf.getRawBuffer(), buf.getReadIndex(),
 		        buf.readableBytes());
-		resp.getOutputStream().flush();
+		resp.flushBuffer();
 	}
 	
 	@Override
@@ -83,7 +83,7 @@ public class PullServlet extends HttpServlet
 			resp.setContentType("image/jpeg");
 			resp.setHeader("C4LenHeader", "1");
 			resp.setHeader("Connection", "keep-alive");
-			resp.setHeader("Transfer-Encoding", "chunked");
+			//resp.setHeader("Transfer-Encoding", "chunked");
 			do
 			{
 				long tmp = timeout;
