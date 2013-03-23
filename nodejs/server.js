@@ -9,7 +9,7 @@ var net = require('net');
 var HashMap = require('./hashmap.js').HashMap;
 var ev = require('./event.js');
 
-var VERSION="0.21.1";
+var VERSION="0.22.0";
 var CACHE_LIMIT = 20;
 var RESUME_WATER_MARK = CACHE_LIMIT/2;
 
@@ -174,7 +174,7 @@ function urlfetch(session, reqev){
         _data = chunk;
       }else{
         var len = _data.length + chunk.length;
-        _data = Buffer.concat([_data, chunk],len);
+        _data = ev.concatBuffers([_data, chunk],len);
       }
    });
    res.on('end', function(){
@@ -561,7 +561,7 @@ server.on('upgrade', function(req, connection, head) {
       if(null == cumulateBuf || cumulateBuf.length == 0){
         cumulateBuf = data;
       }else{
-        cumulateBuf = Buffer.concat([cumulateBuf, data]);
+        cumulateBuf = ev.concatBuffers([cumulateBuf, data]);
       }
       for(;;){
         if(chunkLen == -1){
