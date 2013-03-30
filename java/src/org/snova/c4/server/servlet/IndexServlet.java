@@ -50,6 +50,7 @@ public class IndexServlet extends HttpServlet
 	protected void doGet(HttpServletRequest req, final HttpServletResponse resp)
 	        throws ServletException, IOException
 	{
+		resp.setContentType("text/html");
 		resp.getOutputStream().print(getContent());
 	}
 }
