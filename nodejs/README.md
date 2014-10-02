@@ -39,5 +39,5 @@
     WorkerNode[0]=ws://myapp1.cloudfoundry.com         //websocket， 服务端仅nodejs支持
     WorkerNode[0]=wss://myapp1.cloudfoundry.com        //websocket over ssl， 服务端仅nodejs支持
 
-此Proxy实现在SPAC中名称为C4, 若想只用C4作为唯一的Proxy实现，修改[SPAC]下的Default值为C4
+此Proxy实现在SPAC中名称为C4, 若想只用C4作为唯一的Proxy实现，修改[SPAC]下的Default值为C4或者更改代理默认端口为48102
 
