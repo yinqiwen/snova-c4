@@ -32,9 +32,12 @@
     WorkerNode[0]=myapp1.cloudfoundry.com
     WorkerNode[1]=myapp2.cloudfoundry.com
 
+域名前可以增加scheme指示连接协议类型， 默认为http， gsnova支持如下几种协议：  
+
+    WorkerNode[0]=http://myapp1.cloudfoundry.com   
+    WorkerNode[0]=https://myapp1.cloudfoundry.com
+    WorkerNode[0]=ws://myapp1.cloudfoundry.com         //websocket， 服务端仅nodejs支持
+    WorkerNode[0]=wss://myapp1.cloudfoundry.com        //websocket over ssl， 服务端仅nodejs支持
+
 此Proxy实现在SPAC中名称为C4, 若想只用C4作为唯一的Proxy实现，修改[SPAC]下的Default值为C4
 
-
-其它
--------
-参考[Snova](http://code.google.com/p/snova/)有一些其他相关信息
