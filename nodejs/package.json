@@ -2,10 +2,12 @@
     "name":"snova-nodejs",
     "version":"0.0.1",
     "dependencies": {
+    	"ws": "0.4.x",
+        "express": "3.x"
     },
     "main": "server.js",
     "engines": {
-    "node": "0.8.x",
+    "node": "0.10.x",
     "npm": "1.1.x"
   }
 }

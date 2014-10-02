@@ -9,7 +9,7 @@ var net = require('net');
 var HashMap = require('./hashmap.js').HashMap;
 var ev = require('./event.js');
 
-var VERSION="0.22.0";
+var VERSION="0.23.0";
 var CACHE_LIMIT = 20;
 var RESUME_WATER_MARK = CACHE_LIMIT/2;
 
@@ -259,6 +259,7 @@ function newSession(user, index, hash){
          return;
       }else{
          if(!writer.write(data)){
+         	console.log('###Puases');
             pauseUserSessions(obj.user, obj.index);
          }  
       }
@@ -304,7 +305,7 @@ var ENCRYPTER_SE1  = 1;
 
 function handleEvent(user, index, evv){
   var session = getSession(user, index, evv.hash);
-  //console.log("Session[" + evv.hash + "] handle event:" + evv.type);
+  
   switch(evv.type){
     case EVENT_USER_LOGIN_TYPE:
     {
@@ -337,7 +338,7 @@ function handleEvent(user, index, evv){
       if(null != session.socket){
         session.socket.destroy();
       }
-      //console.log("Connect:" + host + ":" + port);
+      
       var client = net.connect(port, host ,  function() { 
         if(evv.method.toLowerCase() == 'connect'){
           var established = ev.newEvent(EVENT_TCP_CHUNK_TYPE, 1, session.sid);
@@ -498,10 +499,12 @@ function onRequest(request, response) {
   route(pathname, request, response)
 }
 
+var WebSocketServer = require("ws").Server
 var ipaddr  = process.env.OPENSHIFT_NODEJS_IP || "0.0.0.0";
 var port = process.env.VCAP_APP_PORT ||process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || 8080;
 var server = http.createServer(onRequest);
 server.listen(port, ipaddr);
+var wss = new WebSocketServer({server: server})
 console.log('Server running at '+ ipaddr + ":" + port);
 
 var userConnBufTable = new HashMap();
@@ -517,47 +520,50 @@ function getUserConnBuffer(user, index){
   return bufs.get(index);
 }
 
+wss.on("connection", function(ws) {
+    var localConn = ws;
+    var user = null;
+    var index = null; 
+    var rc4key = null;
+    var handshaked = false;
+    console.log("####New WS connection")
+    var cumulateBuf = null;
+    var chunkLen = -1;
+    localConn.on("message", function(data, flags) {
+      if(!handshaked)
+      {
+      	 init();
+      	 var hs = eval('(' + data + ')');
+      	 user = hs['UserToken'];
+      	 index = hs['Index'];
+      	 rc4key = hs['RC4Key'];
+         handshaked = true;
+         
+         if(rc4key != null){
+         	var tmp = new Buffer(rc4key, "base64");
+            ev.rc4(ev.getRC4Key(), tmp);
+            if(ev.getRC4Key() != tmp.toString()){
+                localConn.send("Invalid RC4Key\r\n");
+                localConn.close();
+                return;
+            }
+         }
+         
 
-server.on('upgrade', function(req, connection, head) {
-    var user = req.headers['usertoken'];
-    var localConn = connection;
-    var index = req.headers['connectionindex'];
-    var keepalive = parseInt(req.headers['keep-alive']);
-    var rc4key = req.headers['rc4key'];
-    if(rc4key != null){
-      init();
-      var tmp = new Buffer(rc4key, "base64");
-      ev.rc4(ev.getRC4Key(), tmp);
-      if(ev.getRC4Key() != tmp.toString()){
-         localConn.write(
-          'HTTP/1.1 401 Unauthorized\r\n' + 
-          'Connection: close\r\n' +
-          '\r\n'
-         );
-         localConn.destroy();
+         localConn.send("OK\r\n");
+         console.log('Websocket established with index:' + index);
+         cumulateBuf = getUserConnBuffer(user, index);
+
+
+         localConn.write = function(writeData) {
+            localConn.send(writeData);
+            return true;
+         };
+         resumeUserSessions(user, index, localConn);
          return;
       }
-   }
-    console.log('Websocket establis with index:' + index);
-    localConn.write(
-        'HTTP/1.1 101 Web Socket Protocol Handshake\r\n' + 
-        'Upgrade: WebSocket\r\n' + 
-        'Connection: Upgrade\r\n' +
-        'Content-Length: 0\r\n' +
-        '\r\n'
-    );
-    var cumulateBuf = getUserConnBuffer(user, index);
-    var chunkLen = -1;
-    resumeUserSessions(user, index, localConn);
-
-    setTimeout(function(){
-       userConnBufTable.get(user).set(index, cumulateBuf);
-       pauseUserSessions(user, index);
-       //removeWriter(user, index);
-       localConn.destroy();
-       localConn = null;
-      }, keepalive*1000);
-    localConn.on("data", function(data) {
+      
+      //return
       if(null == cumulateBuf || cumulateBuf.length == 0){
         cumulateBuf = data;
       }else{
@@ -568,6 +574,7 @@ server.on('upgrade', function(req, connection, head) {
            if(cumulateBuf.length >= 4){
               var tmplen = cumulateBuf.length;
               chunkLen = cumulateBuf.readInt32BE(0);
+              
               cumulateBuf = cumulateBuf.slice(4, tmplen);
            }else{
               return;
@@ -596,16 +603,13 @@ server.on('upgrade', function(req, connection, head) {
           break;
         }
       }
-    });
+    })
     localConn.on("close", function() {
       pauseUserSessions(user, index);
-      //removeWriter(user, index);
-      userConnBufTable.get(user).set(index, cumulateBuf);
-    });
-
-    localConn.on("drain", function() {
-      if(null != localConn){
-         resumeUserSessions(user, index, localConn);
+      if(null != userConnBufTable.get(user)){
+      	 userConnBufTable.get(user).set(index, cumulateBuf);
       }
     });
-});
+})
+
+
